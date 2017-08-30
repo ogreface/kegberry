@@ -91,7 +91,7 @@ SUPERVISOR_CONF = Template("""
 ### Supervisor.conf for Kegbot -- Kegberry edition.
 
 [group:kegbot]
-programs=gunicorn,celery,kegbot_core,kegboard_daemon
+programs=serial,gunicorn,celery,kegbot_core,kegboard_daemon
 
 [program:gunicorn]
 command=su -l $USER -c '$SERVER_VENV/bin/gunicorn pykeg.web.wsgi:application --timeout=120 -w 2'
@@ -100,6 +100,15 @@ autostart=true
 autorestart=true
 redirect_stderr=true
 startsecs=30
+
+[program:serial]
+command=su -l $USER -c 'sleep 10; /usr/bin/socat pty,raw,echo=1,link=/tmp/ttysKEG1 pty,raw,echo=1,link=/tmp/ttysKEG2'
+directory=$HOME_DIR
+autostart=true
+autorestart=true
+redirect_stderr=true
+startsecs=40
+
 
 [program:celery]
 command=su -l $USER -c 'sleep 10; $SERVER_VENV/bin/kegbot run_workers'
@@ -118,12 +127,20 @@ redirect_stderr=true
 startsecs=45
 
 [program:kegboard_daemon]
-command=su -l $USER -c 'sleep 20; $PYCORE_VENV/bin/kegboard_daemon.py'
+command=su -l $USER -c 'sleep 20; $PYCORE_VENV/bin/kegboard_daemon.py --kegboard_device_path=/tmp/ttysKEG1'
 directory=$HOME_DIR
 autostart=true
 autorestart=true
 redirect_stderr=true
 startsecs=50
+
+[program:gpio_daemon]
+command=su -l $USER -c 'sleep 20; /home/kegbot/gpio_daemon.py'
+directory=$HOME_DIR
+autostart=true
+autorestart=true
+redirect_stderr=true
+startsecs=55
 
 """)
 
