@@ -15,6 +15,7 @@ import sys
 from flowmeter import *
 from serial_reader import SerialReader
 from message import *
+import requests
 
 TAP1_DATA_PIN=23
 TAP2_DATA_PIN=24
@@ -48,6 +49,20 @@ def setupGPIO():
   GPIO.add_event_detect(TAP1_DATA_PIN, GPIO.RISING, callback=tapRunning, bouncetime=20) 
   GPIO.add_event_detect(TAP2_DATA_PIN, GPIO.RISING, callback=tap2Running, bouncetime=20)
 
+def buildHello(serial):
+  hello = HelloMessage()
+  hello.SetValue('firmware_version',1)
+  hello.SetValue('protocol_version',1)
+  hello.SetValue('serial_number', serial)
+  hello.SetValue('uptime_millis', 20)
+  hello.SetValue('uptime_days', 20)
+  return hello
+
+def buildMeterStatus(name, ticks):
+  status = MeterStatusMessage()
+  status.SetValue('meter_name', name)
+  status.SetValue('meter_reading', ticks) 
+  return status
 
 if __name__ == '__main__':
   killer = GracefulKiller()
@@ -75,11 +90,10 @@ if __name__ == '__main__':
     for message in messages:
         if isinstance(message, PingCommand):
             print "Got a ping message from kegcore"
-            hello = HelloMessage()
-            hello.SetValue('firmware_version',1)
-            hello.SetValue('protocol_version',1)
-            hello.SetValue('serial_number',"flow0")
-            serial.write_message(hello)
+            flow = buildHello("flow0")
+            flow1 = buildHello("flow1")
+            serial.write_message(flow)
+#            serial.write_message(flow1)
         elif isinstance(message, SetOutputCommand):
             print "Received a set output command"
         elif isinstance(message, SetSerialNumberCommand):
@@ -87,13 +101,22 @@ if __name__ == '__main__':
     
 
 
-    if (fm.thisPour > 0.10 and currentTime - fm.lastClick > 250): # 10 seconds of inactivity causes a tweet
-      tweet = "Someone just poured " + fm.getFormattedThisPour() + " of " + fm.getBeverage() + " from the Adafruit kegomatic!" 
+    if (fm.thisPour > 0.01 and currentTime - fm.lastClick > 250): # 10 seconds of inactivity causes a tweet
+      tweet = "Someone just poured " + fm.getFormattedThisPour() + "  for " + str(fm.clickDelta) + " of " + fm.getBeverage() + " from the Adafruit kegomatic!" 
       lastTweet = int(time.time() * FlowMeter.MS_IN_A_SECOND)
-      fm.thisPour = 0.0
       print tweet
+      status = buildMeterStatus("left", fm.clickDelta)
+      serial.write_message(status)
+
+      url = "http://localhost/api/taps/1"  
+      payload = {'ticks': fm.clickDelta, 'volume_ml': fm.thisPour * 1000, 'api_key': '8e9d45559c883413183a9e9d0d884027'}
+      print payload
+      r = requests.post(url, data=payload)
+      print r.text
+      fm.thisPour = 0.0
+
    
-    if (fm2.thisPour > 0.10 and currentTime - fm2.lastClick > 250): # 10 seconds of inactivity causes a tweet
+    if (fm2.thisPour > 0.01 and currentTime - fm2.lastClick > 250): # 10 seconds of inactivity causes a tweet
       tweet = "Someone just poured " + fm2.getFormattedThisPour() + " of " + fm2.getBeverage() + " from the Adafruit kegomatic!"
       lastTweet = int(time.time() * FlowMeter.MS_IN_A_SECOND)
       fm2.thisPour = 0.0

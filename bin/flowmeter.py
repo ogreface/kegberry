@@ -32,6 +32,7 @@ class FlowMeter():
     self.clicks += 1
     # get the time delta
     self.clickDelta = max((currentTime - self.lastClick), 1)
+    print "clickdelta " + str(self.clickDelta)
     # calculate the instantaneous speed
     if (self.enabled == True and self.clickDelta < 1000):
       self.hertz = FlowMeter.MS_IN_A_SECOND / self.clickDelta
@@ -68,5 +69,9 @@ class FlowMeter():
       return str(round(self.totalPour,3)) + ' L'
     else:
       return str(round(self.totalPour * FlowMeter.PINTS_IN_A_LITER, 3)) + ' pints'
+
+  def clear(self):
+    self.thisPour = 0;
+    self.totalPour = 0;
 
 
